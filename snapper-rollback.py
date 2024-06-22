@@ -39,6 +39,11 @@ def parse_args():
         help="don't actually do anything, just print the actions out",
     )
     parser.add_argument(
+        "--root-autodetect",
+        action="store_true",
+        help="automaticaly detects root and mount it",
+    )
+    parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -67,7 +72,7 @@ def ensure_dir(dirpath, dry_run=False):
             raise
 
 
-def mount_subvol_id5(target, source=None, dry_run=False):
+def mount_subvol_id5(target, source=None, dry_run=False, root_autodetect=False):
     """
     There is no built-in `mount` function in python, let's shell out to an `os.system` call
     Also see https://stackoverflow.com/a/29156997 for a cleaner alternative
@@ -76,7 +81,7 @@ def mount_subvol_id5(target, source=None, dry_run=False):
     ensure_dir(target, dry_run=dry_run)
 
     if not os.path.ismount(target):
-        shellcmd = "mount -o subvolid=5 {} {}".format(source or "", target)
+        shellcmd = "mount -o subvolid=5 {} {}".format("$(df --output=source / | tail -n 1)" if root_autodetect else (source or ""), target)
         if dry_run:
             LOG.info(shellcmd)
             ret = 0
@@ -153,7 +158,7 @@ def main():
     date = datetime.now().strftime("%Y-%m-%dT%H:%M")
     subvol_main_newname = pathlib.Path(f"{subvol_main}{date}")
     try:
-        mount_subvol_id5(mountpoint, source=dev, dry_run=args.dry_run)
+        mount_subvol_id5(mountpoint, source=dev, dry_run=args.dry_run, root_autodetect=args.root_autodetect)
         rollback(
             subvol_main,
             subvol_main_newname,
